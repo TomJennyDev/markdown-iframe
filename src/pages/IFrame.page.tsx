@@ -11,6 +11,7 @@ interface TocItem {
 }
 
 export function IFramePage() {
+    // useMarkdownHMR();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [markdownText, setMarkdownText] = useState<string>('');

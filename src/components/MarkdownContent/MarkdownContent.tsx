@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Text, Paper } from '@mantine/core';
 import MarkdownIt from 'markdown-it';
 import { useHeadingHighlight } from './useHeadingHighlight';
 import { useMessageListener, useSendMessage } from '../../hooks/usePostMessage';
+import { useMarkdownHMR } from '../../hooks/useMarkdownHMR';
+
 interface MarkdownContentProps {
   url?: string;
 }
@@ -13,13 +15,13 @@ export function MarkdownContent({ url: _url }: MarkdownContentProps) {
   const [error, _setError] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const sendToParent = useSendMessage(window.parent);
+  const scrollPositionRef = useRef<number>(0);
 
   // Use custom hook for heading highlighting
   useHeadingHighlight(contentRef, content);
 
-  // Listen for markdown content from parent with type safety
-  useMessageListener('markdown-content', (message) => {
-    const text = message.payload;
+  // Function to render markdown
+  const renderMarkdown = useCallback((text: string) => {
     const md = new MarkdownIt({
       html: true,
       linkify: true,
@@ -50,7 +52,46 @@ export function MarkdownContent({ url: _url }: MarkdownContentProps) {
       return defaultRender(tokens, idx, options, _env, self);
     };
 
-    const html = md.render(text);
+    return md.render(text);
+  }, []);
+
+  // Function to reload markdown content
+  const reloadMarkdown = useCallback(async () => {
+    // Save current scroll position
+    scrollPositionRef.current = window.scrollY;
+
+    try {
+      // Re-fetch the markdown file with cache busting
+      const response = await fetch(`/sample.md?t=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch markdown');
+      }
+      const text = await response.text();
+      const html = renderMarkdown(text);
+      
+      setContent(html);
+      
+      // Restore scroll position after content updates
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current);
+      });
+      
+      console.log('Markdown content updated without page reload');
+    } catch (err) {
+      console.error('Error reloading markdown:', err);
+    }
+  }, [renderMarkdown]);
+
+  // Listen for markdown HMR events
+  useMarkdownHMR((data) => {
+    console.log('Markdown changed, reloading content...', data);
+    reloadMarkdown();
+  });
+
+  // Listen for markdown content from parent with type safety
+  useMessageListener('markdown-content', (message) => {
+    const text = message.payload;
+    const html = renderMarkdown(text);
     setContent(html);
     setLoading(false);
   });
