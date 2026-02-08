@@ -1,139 +1,24 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRef } from 'react';
 import { Box, Text, Paper } from '@mantine/core';
-import MarkdownIt from 'markdown-it';
 import { useHeadingHighlight } from './useHeadingHighlight';
-import { useMessageListener, useSendMessage } from '../../hooks/usePostMessage';
-import { useMarkdownHMR } from '../../hooks/useMarkdownHMR';
+import { useHeadingClick } from './useHeadingClick';
+import { useMarkdownContent } from './useMarkdownContent';
+import { useIframeSync } from './useIframeSync';
 
-interface MarkdownContentProps {
-  url?: string;
-}
-
-export function MarkdownContent({ url: _url }: MarkdownContentProps) {
-  const [content, setContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, _setError] = useState<string | null>(null);
+export function MarkdownContent() {
   const contentRef = useRef<HTMLDivElement>(null);
-  const sendToParent = useSendMessage(window.parent);
-  const scrollPositionRef = useRef<number>(0);
 
-  // Use custom hook for heading highlighting
+  // Load and manage markdown content
+  const { content, loading, error } = useMarkdownContent();
+
+  // Sync iframe with parent window
+  useIframeSync(loading, content);
+
+  // Heading highlight on scroll
   useHeadingHighlight(contentRef, content);
 
-  // Function to render markdown
-  const renderMarkdown = useCallback((text: string) => {
-    const md = new MarkdownIt({
-      html: true,
-      linkify: true,
-      typographer: true,
-    });
-
-    // Custom renderer to add IDs to headings
-    const defaultRender =
-      md.renderer.rules.heading_open ||
-      function (tokens, idx, options, _env, self) {
-        return self.renderToken(tokens, idx, options);
-      };
-
-    md.renderer.rules.heading_open = function (tokens, idx, options, _env, self) {
-      const token = tokens[idx];
-      const textToken = tokens[idx + 1];
-
-      if (textToken && textToken.type === 'inline') {
-        const headingText = textToken.content;
-        const headingId = headingText
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/\s+/g, '-');
-
-        token.attrSet('id', headingId);
-      }
-
-      return defaultRender(tokens, idx, options, _env, self);
-    };
-
-    return md.render(text);
-  }, []);
-
-  // Function to reload markdown content
-  const reloadMarkdown = useCallback(async () => {
-    // Save current scroll position
-    scrollPositionRef.current = window.scrollY;
-
-    try {
-      // Re-fetch the markdown file with cache busting
-      const response = await fetch(`/sample.md?t=${Date.now()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch markdown');
-      }
-      const text = await response.text();
-      const html = renderMarkdown(text);
-      
-      setContent(html);
-      
-      // Restore scroll position after content updates
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollPositionRef.current);
-      });
-      
-      console.log('Markdown content updated without page reload');
-    } catch (err) {
-      console.error('Error reloading markdown:', err);
-    }
-  }, [renderMarkdown]);
-
-  // Listen for markdown HMR events
-  useMarkdownHMR((data) => {
-    console.log('Markdown changed, reloading content...', data);
-    reloadMarkdown();
-  });
-
-  // Listen for markdown content from parent with type safety
-  useMessageListener('markdown-content', (message) => {
-    const text = message.payload;
-    const html = renderMarkdown(text);
-    setContent(html);
-    setLoading(false);
-  });
-
-  useEffect(() => {
-    // Signal parent that iframe is ready
-    sendToParent({ type: 'iframe-ready' });
-  }, [sendToParent]);
-
-  // Send height to parent for auto-resize
-  useEffect(() => {
-    if (!loading && content) {
-      const sendHeight = () => {
-        const height = document.body.scrollHeight;
-        sendToParent({ type: 'resize', payload: height });
-      };
-
-      // Send height after content loads
-      const timer = setTimeout(sendHeight, 100);
-      
-      // Observe content changes
-      const observer = new MutationObserver(sendHeight);
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-      });
-
-      return () => {
-        clearTimeout(timer);
-        observer.disconnect();
-      };
-    }
-  }, [loading, content, sendToParent]);
-
-  // Listen for scroll messages from parent with type safety
-  useMessageListener('scrollToHeading', (message) => {
-    const element = document.getElementById(message.payload);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
+  // Heading click to scroll
+  useHeadingClick(contentRef, content);
 
   if (loading) {
     return <Text>Loading markdown...</Text>;
@@ -167,6 +52,17 @@ export function MarkdownContent({ url: _url }: MarkdownContentProps) {
           margin-bottom: 1rem;
           font-weight: 600;
           scroll-margin-top: 1rem;
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+
+        .markdown-content h1:hover,
+        .markdown-content h2:hover,
+        .markdown-content h3:hover,
+        .markdown-content h4:hover,
+        .markdown-content h5:hover,
+        .markdown-content h6:hover {
+          color: #228be6;
         }
 
         .markdown-content h1 {

@@ -20,7 +20,8 @@ export type Message =
   | { type: 'markdown-content'; payload: string }
   | { type: 'resize'; payload: number }
   | { type: 'heading-visible'; payload: string }
-  | { type: 'scrollToHeading'; payload: string };
+  | { type: 'scrollToHeading'; payload: string }
+  | { type: 'scrollToHeadingFromIframe'; payload: string };
 
 
 /**

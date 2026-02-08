@@ -34,22 +34,20 @@ export function TableOfContents({ items, onItemClick, activeId }: TableOfContent
         <Stack gap="xs">
           {items.map((item, index) => (
             <Anchor
-              key={index}
+              key={`${item.id}-${index}`}
               onClick={() => onItemClick(item.id)}
               style={{
-                paddingLeft: `${(item.level - 1) * 20 + 8}px`,
                 fontSize: item.level === 1 ? '0.95rem' : '0.875rem',
                 fontWeight: item.id === activeId ? 700 : item.level === 1 ? 600 : 400,
                 cursor: 'pointer',
                 display: 'block',
                 textDecoration: 'none',
                 backgroundColor: item.id === activeId ? '#e7f5ff' : 'transparent',
-                padding: `4px 8px 4px ${(item.level - 1) * 20 + 8}px`,
+                padding: `6px 12px 6px ${(item.level - 1) * 16 + 12}px`,
                 borderRadius: '4px',
-                marginLeft: '-8px',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
+                color: item.id === activeId ? '#1971c2' : '#228be6',
               }}
-              c={item.id === activeId ? 'blue.7' : 'blue'}
             >
               {item.text}
             </Anchor>

@@ -10,6 +10,7 @@ const VALID_MESSAGE_TYPES: ReadonlyArray<Message['type']> = [
   'resize',
   'heading-visible',
   'scrollToHeading',
+  'scrollToHeadingFromIframe',
 ] as const;
 
 /**
